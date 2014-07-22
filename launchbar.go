@@ -2,14 +2,18 @@ package launchbar
 
 import (
 	"fmt"
+	"io/ioutil"
 	"log"
 	"os"
 	"os/exec"
 	"path"
 	"strings"
 
+	"github.com/DHowett/go-plist"
 	"github.com/codegangsta/inject"
 )
+
+type infoPlist map[string]interface{}
 
 type Action struct {
 	inject.Injector
@@ -22,6 +26,7 @@ type Action struct {
 	Logger  *log.Logger
 	context *Context
 	funcs   *FuncMap
+	info    infoPlist
 }
 
 func NewAction(name string, config ConfigValues) *Action {
@@ -46,6 +51,17 @@ func NewAction(name string, config ConfigValues) *Action {
 	}
 	a.context = c
 	a.Map(c)
+
+	data, err := ioutil.ReadFile(path.Join(a.ActionPath(), "Contents", "Info.plist"))
+	if err != nil {
+		a.Logger.Println(err)
+		panic(err)
+	}
+	_, err = plist.Unmarshal(data, &a.info)
+	if err != nil {
+		a.Logger.Println(err)
+		panic(err)
+	}
 	return a
 }
 
