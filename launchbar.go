@@ -159,6 +159,10 @@ func (a *Action) GetItem(id int) *Item {
 	return a.items[id-1]
 }
 
+// Info.plist variables
+func (a *Action) Version() Version { return Version(a.info["CFBundleVersion"].(string)) }
+
+// LauncBar provided variabled
 func (a *Action) ActionPath() string    { return os.Getenv("LB_ACTION_PATH") }
 func (a *Action) CachePath() string     { return os.Getenv("LB_CACHE_PATH") }
 func (a *Action) SupportPath() string   { return os.Getenv("LB_SUPPORT_PATH") }
