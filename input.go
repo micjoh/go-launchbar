@@ -76,6 +76,42 @@ func (in *Input) String() string {
 	return in.Raw()
 }
 
+func (in *Input) FuncArg() string {
+	if in.IsObject() {
+		return in.Item.item.FuncArg
+	}
+	return ""
+}
+
+func (in *Input) FuncArgsString() []string {
+	if !in.isObject {
+		return nil
+	}
+	var out []string
+	err := json.Unmarshal([]byte(in.Item.item.FuncArg), &out)
+	if err != nil {
+		return []string{in.Item.item.FuncArg}
+	}
+	return out
+}
+
+func (in *Input) FuncArgsMapString() map[int]string {
+	out := make(map[int]string)
+	if !in.isObject {
+		return out
+	}
+	var args []interface{}
+	err := json.Unmarshal([]byte(in.Item.item.FuncArg), &args)
+	if err != nil {
+		out[0] = in.Item.item.FuncArg
+		return out
+	}
+	for i, arg := range args {
+		out[i] = fmt.Sprintf("%v", arg)
+	}
+	return out
+}
+
 func (in *Input) Title() string {
 	if in.IsObject() {
 		return in.Item.item.Title

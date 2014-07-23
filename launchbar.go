@@ -91,8 +91,18 @@ func (a *Action) Run() string {
 				}
 				if len(vals) > 0 {
 					if vals[0].Interface() != nil {
-						out := vals[0].Interface().(Items)
-						s := out.Compile()
+						s := ""
+						switch res := vals[0].Interface().(type) {
+
+						case Items:
+							s = res.Compile()
+						case string:
+							s = res
+						case *View:
+							s = res.Compile()
+						case *Items:
+							s = res.Compile()
+						}
 						return s
 					}
 				}
@@ -118,6 +128,8 @@ func (a *Action) Run() string {
 			}
 		}
 	}
+
+	// TODO: if a.GetView(view) == nil inform the user
 	view := a.Config.GetString("view")
 	if view == "" {
 		view = "main"

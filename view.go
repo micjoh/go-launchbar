@@ -34,10 +34,11 @@ func (v *View) AddItem(item *Item) *View {
 	return v
 }
 
-func (v *View) Compile() (out string) {
+func (v *View) Render() Items {
 	if len(v.Items) == 0 {
-		return ""
+		return Items(nil)
 	}
+
 	items := &Items{}
 	for _, item := range v.Items {
 		v.Action.context.Self = item
@@ -65,13 +66,22 @@ func (v *View) Compile() (out string) {
 	}
 	sort.Sort(itemsByOrder(*items))
 
+	return *items
+
+}
+
+func (v *View) Compile() string {
+	items := v.Render()
+
+	if items == nil {
+		return ""
+	}
+
 	b, err := json.Marshal(items.getItems())
 	if err != nil {
-		out = fmt.Sprintf(`[{"title": "%v","subtitle":"error"}]`, err)
-	} else {
-		out = string(b)
+		return fmt.Sprintf(`[{"title": "%v","subtitle":"error"}]`, err)
 	}
-	return
+	return string(b)
 }
 
 func (v *View) Join(w *View) *View {

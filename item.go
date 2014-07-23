@@ -36,7 +36,7 @@ func newItem(item *item) *Item {
 
 type item struct {
 	// Standard fields
-	Title                  string  `json:"title"`
+	Title                  string  `json:"title,omitempty"`
 	Subtitle               string  `json:"subtitle,omitempty"`
 	URL                    string  `json:"url,omitempty"`
 	Path                   string  `json:"path,omitempty"`
@@ -50,10 +50,11 @@ type item struct {
 	Children               []*item `json:"children,omitempty"`
 
 	// Custom fields
-	ID       int                    `json:"x-id"`
-	Order    int                    `json:"x-order"`
-	FuncName string                 `json:"x-func"`
-	Arg      string                 `json:"x-arg"`
+	ID       int                    `json:"x-id,omitempty"`
+	Order    int                    `json:"x-order,omitempty"`
+	FuncName string                 `json:"x-func,omitempty"`
+	FuncArg  string                 `json:"x-funcarg,omitempty"`
+	Arg      string                 `json:"x-arg,omitempty"`
 	Data     map[string]interface{} `json:"x-data,omitempty"`
 }
 
@@ -82,13 +83,13 @@ func (i *Item) Run(f string, args ...interface{}) *Item {
 	var s string
 	if len(args) == 1 {
 		if s, ok = args[0].(string); ok {
-			i.item.Arg = s
+			i.item.FuncArg = s
 		}
 	}
 	if len(args) > 1 || !ok {
 		b, err := json.Marshal(args)
 		if err == nil {
-			i.item.Arg = string(b)
+			i.item.FuncArg = string(b)
 		}
 	}
 	return i
