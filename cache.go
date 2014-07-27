@@ -41,13 +41,6 @@ type genericCache struct {
 	Data interface{} `json:"data"`
 }
 
-func (c *Cache) Clean() {
-	c.Delete("my-recent")
-	c.Delete("my-tags")
-	c.Delete("my-posts")
-
-}
-
 // Delete removes a cachefile for the specified key
 func (c *Cache) Delete(key string) {
 	p := path.Join(c.path, key)
