@@ -128,7 +128,7 @@ func (in *Input) Data(key string) interface{} {
 	return nil
 }
 
-//DataString returns a customdata[key] as string
+// DataString returns a customdata[key] as string
 func (in *Input) DataString(key string) string {
 	if in.Item == nil {
 		return ""
@@ -139,7 +139,7 @@ func (in *Input) DataString(key string) string {
 	return ""
 }
 
-//DataInt returns a customdata[key] as string
+// DataInt returns a customdata[key] as string
 func (in *Input) DataInt(key string) int {
 	if s, ok := in.Item.item.Data[key].(int); ok {
 		return s

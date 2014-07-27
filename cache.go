@@ -22,10 +22,12 @@ var (
 	ErrCacheIsExpired     = CacheError("the cache is expired")
 )
 
+// Cache provides tools for non permanent storage
 type Cache struct {
 	path string
 }
 
+// NewCache initialize and returns a new Cache
 func NewCache(p string) Cache {
 	return Cache{path: p}
 }
@@ -46,6 +48,7 @@ func (c *Cache) Clean() {
 
 }
 
+// Delete removes a cachefile for the specified key
 func (c *Cache) Delete(key string) {
 	p := path.Join(c.path, key)
 	if stat, err := os.Stat(p); err == nil {
@@ -57,6 +60,7 @@ func (c *Cache) Delete(key string) {
 	}
 }
 
+// Set stores the data in a file identified by the key and with the lifetime of d
 func (c *Cache) Set(key string, data interface{}, d time.Duration) {
 	wd, err := os.Create(path.Join(c.path, key))
 	if err != nil {
@@ -70,6 +74,16 @@ func (c *Cache) Set(key string, data interface{}, d time.Duration) {
 	}
 	wd.Write(b)
 }
+
+// Get the data from cachefile specified by the key and stores it into the value pointed to by v
+//
+// if the cache does not exists it returns nil, ErrCacheDoesNotExists
+//
+// if the cache is expired it returns the expire time and ErrCacheIsExpired
+//
+// if the cache there's an error reading the cachefile it return nil, ErrCacheIsCorrupted
+//
+// Otherwise it returns the expiry time, nil
 func (c *Cache) Get(key string, v interface{}) (*time.Time, error) {
 	if _, err := os.Stat(path.Join(c.path, key)); err != nil {
 		return nil, ErrCacheDoesNotExists
@@ -97,6 +111,7 @@ func (c *Cache) Get(key string, v interface{}) (*time.Time, error) {
 	return e.Time, nil
 }
 
+// SetItems is a helper function to store some Items
 func (c Cache) SetItems(key string, items *Items, d time.Duration) {
 	wd, err := os.Create(path.Join(c.path, key))
 	if err != nil {
@@ -112,6 +127,8 @@ func (c Cache) SetItems(key string, items *Items, d time.Duration) {
 	wd.Write(b)
 }
 
+// GetItemsWithInfo is a helper function to get the stored items from the caceh
+// with the expiry time and error
 func (c *Cache) GetItemsWithInfo(key string) (*Items, *time.Time, error) {
 	if _, err := os.Stat(path.Join(c.path, key)); err != nil {
 		return nil, nil, ErrCacheDoesNotExists
@@ -141,6 +158,8 @@ func (c *Cache) GetItemsWithInfo(key string) (*Items, *time.Time, error) {
 	return items, e.Time, nil
 
 }
+
+// GetItems is a helper function to get the stored items from the cache
 func (c Cache) GetItems(key string) *Items {
 	items, _, _ := c.GetItemsWithInfo(key)
 	return items

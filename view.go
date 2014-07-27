@@ -6,12 +6,14 @@ import (
 	"sort"
 )
 
+// View represents collection of Items in LaunchBar
 type View struct {
 	Action *Action
 	Name   string
 	Items  Items
 }
 
+// NewItem creates an always matching Item that runs in background and adds it to the view.
 func (v *View) NewItem(title string) *Item {
 	i := &Item{View: v, item: &item{Title: title}}
 	i.SetActionRunsInBackground(true).
@@ -23,6 +25,8 @@ func (v *View) NewItem(title string) *Item {
 	v.Action.items = append(v.Action.items, i)
 	return i
 }
+
+// AddItem add an Item to the view
 func (v *View) AddItem(item *Item) *View {
 	item.View = v
 	if item.match == nil {
@@ -34,6 +38,7 @@ func (v *View) AddItem(item *Item) *View {
 	return v
 }
 
+// Render executes each Item Render, Match functions and returns them.
 func (v *View) Render() Items {
 	if len(v.Items) == 0 {
 		return Items(nil)
@@ -70,6 +75,7 @@ func (v *View) Render() Items {
 
 }
 
+// Compile renders and output the view.Items as a json string.
 func (v *View) Compile() string {
 	items := v.Render()
 
@@ -84,6 +90,7 @@ func (v *View) Compile() string {
 	return string(b)
 }
 
+// Join returns a new view with the items of v, w
 func (v *View) Join(w *View) *View {
 	if w == nil {
 		return v

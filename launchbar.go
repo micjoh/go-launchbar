@@ -1,3 +1,8 @@
+// package launchbar is a package to quickly write LaunchBar v6 actions like a pro
+//
+// For example check :
+//   https://github.com/nbjahan/launchbar-pinboard
+//   https://github.com/nbjahan/launchbar-spotlight
 package launchbar
 
 import (
@@ -15,20 +20,22 @@ import (
 
 type infoPlist map[string]interface{}
 
+// Action represents a LaunchBar action
 type Action struct {
-	inject.Injector
-	name    string
-	Config  Config
-	Cache   Cache
-	views   map[string]*View
-	items   []*Item
-	Input   *Input
-	Logger  *log.Logger
-	context *Context
-	funcs   *FuncMap
-	info    infoPlist
+	inject.Injector // Used for dependency injection
+	Config          Config
+	Cache           Cache
+	Input           *Input
+	Logger          *log.Logger
+	name            string
+	views           map[string]*View
+	items           []*Item
+	context         *Context
+	funcs           *FuncMap
+	info            infoPlist
 }
 
+// NewAction creates an empty action, ready to populate with views
 func NewAction(name string, config ConfigValues) *Action {
 	a := &Action{
 		Injector: inject.New(),
@@ -65,6 +72,7 @@ func NewAction(name string, config ConfigValues) *Action {
 	return a
 }
 
+// Init parses the input
 func (a *Action) Init(m ...FuncMap) *Action {
 	a.funcs = &FuncMap{}
 	if m != nil {
@@ -78,6 +86,7 @@ func (a *Action) Init(m ...FuncMap) *Action {
 	return a
 }
 
+// Run returns the compiled output of views. You must call Init first
 func (a *Action) Run() string {
 	in := a.Input
 	if in.IsObject() {
@@ -139,6 +148,9 @@ func (a *Action) Run() string {
 	return out
 }
 
+// ShowView reruns the LaunchBar with the specified view.
+//
+// Use this when your LiveFeedback is enabled and you want to show another view
 func (a *Action) ShowView(v string) {
 	a.Config.Set("view", v)
 	exec.Command("osascript", "-e", fmt.Sprintf(`tell application "LaunchBar"
@@ -147,12 +159,14 @@ func (a *Action) ShowView(v string) {
        end tell`, a.name)).Start()
 }
 
+// NewView created a new view ready to populate with Items
 func (a *Action) NewView(name string) *View {
 	v := &View{a, name, make(Items, 0)}
 	a.views[name] = v
 	return v
 }
 
+// GetView returns a View if the view is not defined returns nil
 func (a *Action) GetView(v string) *View {
 	view, ok := a.views[v]
 	if ok {
@@ -161,6 +175,7 @@ func (a *Action) GetView(v string) *View {
 	return nil
 }
 
+// GetItem return an Item with its ID. Returns nil if not found.
 func (a *Action) GetItem(id int) *Item {
 	if id < 1 {
 		return nil
@@ -172,17 +187,58 @@ func (a *Action) GetItem(id int) *Item {
 }
 
 // Info.plist variables
+
+// Varsion returns Action version specified by CFBundleVersion key in Info.plist
 func (a *Action) Version() Version { return Version(a.info["CFBundleVersion"].(string)) }
 
-// LauncBar provided variabled
-func (a *Action) ActionPath() string    { return os.Getenv("LB_ACTION_PATH") }
-func (a *Action) CachePath() string     { return os.Getenv("LB_CACHE_PATH") }
-func (a *Action) SupportPath() string   { return os.Getenv("LB_SUPPORT_PATH") }
-func (a *Action) IsDebug() bool         { return os.Getenv("LB_DEBUG_LOG_ENABLED") == "true" }
+// LaunchBar provided variabled
+
+// ActionPath returns the absolute path to the .lbaction bundle.
+func (a *Action) ActionPath() string { return os.Getenv("LB_ACTION_PATH") }
+
+// CachePath returns the absolute path to the action’s cache directory:
+//  ~/Library/Caches/at.obdev.LaunchBar/Actions/Action Bundle Identifier/
+//
+// The action’s cache directory can be used to store files that can be recreated
+// by the action itself, e.g. by downloading a file from a server again.
+//
+// Currently, this directory’s contents will never be touched by LaunchBar,
+// but it may be periodically cleared in a future release.
+// When the action is run, this directory is guaranteed to exist.
+func (a *Action) CachePath() string { return os.Getenv("LB_CACHE_PATH") }
+
+// Supportpath returns the The absolute path to the action’s support directory:
+//  ~/Library/Application Support/LaunchBar/Action Support/Action Bundle Identifier/
+//
+// The action support directory can be used to persist user data between runs of
+// the action, like preferences. When the action is run, this directory is
+// guaranteed to exist.
+func (a *Action) SupportPath() string { return os.Getenv("LB_SUPPORT_PATH") }
+
+// IsDebug returns the value corresponds to LBDebugLogEnabled in the action’s Info.plist.
+func (a *Action) IsDebug() bool { return os.Getenv("LB_DEBUG_LOG_ENABLED") == "true" }
+
+// Launchbarpath returns the path to the LaunchBar.app bundle.
 func (a *Action) LaunchBarPath() string { return os.Getenv("LB_LAUNCHBAR_PATH") }
-func (a *Action) ScriptType() string    { return os.Getenv("LB_SCRIPT_TYPE") }
-func (a *Action) IsCommandKey() bool    { return os.Getenv("LB_OPTION_COMMAND_KEY") == "1" }
-func (a *Action) IsOptionKey() bool     { return os.Getenv("LB_OPTION_ALTERNATE_KEY") == "1" }
-func (a *Action) IsShiftKey() bool      { return os.Getenv("LB_OPTION_SHIFT_KEY") == "1" }
-func (a *Action) IsControlKey() bool    { return os.Getenv("LB_OPTION_CONTROL_KEY") == "1" }
-func (a *Action) ISBackground() bool    { return os.Getenv("LB_OPTION_RUN_IN_BACKGROUND") == "1" }
+
+// ScriptType returns the type of the script, as defined by the action’s Info.plist.
+//
+// This is either “default”, “suggestions” or “actionURL”.
+//
+// See http://www.obdev.at/resources/launchbar/developer-documentation/action-programming-guide.html#script-types for more information.
+func (a *Action) ScriptType() string { return os.Getenv("LB_SCRIPT_TYPE") }
+
+// IsCommandKey returns true if the Command key was down while running the action.
+func (a *Action) IsCommandKey() bool { return os.Getenv("LB_OPTION_COMMAND_KEY") == "1" }
+
+// IsOptionKey returns true if the Alternate (Option) key was down while running the action.
+func (a *Action) IsOptionKey() bool { return os.Getenv("LB_OPTION_ALTERNATE_KEY") == "1" }
+
+// IsShiftKey returns true if the Shift key was down while running the action.
+func (a *Action) IsShiftKey() bool { return os.Getenv("LB_OPTION_SHIFT_KEY") == "1" }
+
+// IsControlKey returns true if the Control key was down while running the action.
+func (a *Action) IsControlKey() bool { return os.Getenv("LB_OPTION_CONTROL_KEY") == "1" }
+
+// IsBackground returns true if the action is running in background.
+func (a *Action) IsBackground() bool { return os.Getenv("LB_OPTION_RUN_IN_BACKGROUND") == "1" }

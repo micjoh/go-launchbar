@@ -6,6 +6,7 @@ import (
 	"strings"
 )
 
+// Version represents a version string
 type Version string
 
 func parseVersion(s string, width int) int64 {
@@ -23,6 +24,7 @@ func parseVersion(s string, width int) int64 {
 	return result
 }
 
+// Cmp compares two versions
 func (v Version) Cmp(w Version) int {
 	return int(parseVersion(string(v), 4) - parseVersion(string(w), 4))
 }
