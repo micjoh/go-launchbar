@@ -12,7 +12,6 @@ import (
 	"os"
 	"os/exec"
 	"path"
-	"strings"
 
 	"github.com/DHowett/go-plist"
 	"github.com/codegangsta/inject"
@@ -79,7 +78,7 @@ func (a *Action) Init(m ...FuncMap) *Action {
 		*a.funcs = m[0]
 	}
 
-	in := NewInput(a, strings.Join(os.Args[1:], " "))
+	in := NewInput(a, os.Args[1:])
 	a.Input = in
 	a.context.Input = in
 

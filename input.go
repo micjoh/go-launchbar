@@ -3,32 +3,53 @@ package launchbar
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"strconv"
+	"strings"
 )
 
 // Input represents the object that LaunchBar passes to scripts
 type Input struct {
-	raw      string
-	Item     *Item
-	isString bool
-	isNumber bool
-	hasFunc  bool
-	isFloat  bool
-	isInt    bool
-	isObject bool
-	isPaths  bool
-	hasData  bool
-	paths    []string
-	number   float64
+	Item *Item
+
+	args           []string
+	isObject       bool
+	isString       bool
+	isPaths        bool
+	isNumber       bool
+	isFloat        bool
+	isInt          bool
+	isLiveFeedback bool
+	hasFunc        bool
+	hasData        bool
+	paths          []string
+	number         float64
 }
 
-func NewInput(a *Action, s string) *Input {
+func exists(p string) bool {
+	_, err := os.Stat(p)
+	return err == nil
+}
+
+func NewInput(a *Action, args []string) *Input {
 	item := item{}
 	var in = &Input{
-		raw: s,
+		args: args,
+	}
+	in.isLiveFeedback = a.IsBackground()
+	if len(args) > 1 {
+		in.isPaths = true
+		in.paths = args
+		return in
 	}
 
-	if err := json.Unmarshal([]byte(in.Raw()), &item); err == nil {
+	if len(args) == 1 && exists(args[0]) {
+		in.isPaths = true
+		in.paths = args
+		return in
+	}
+
+	if err := json.Unmarshal([]byte(args[0]), &item); err == nil {
 		in.isObject = true
 		if item.Data != nil && len(item.Data) > 0 {
 			in.hasData = true
@@ -45,21 +66,22 @@ func NewInput(a *Action, s string) *Input {
 		if item.FuncName != "" {
 			in.hasFunc = true
 		}
+		if in.Item.item.Path != "" && exists(in.Item.item.Path) {
+			in.isPaths = true
+			in.paths = []string{in.Item.item.Path}
+		}
 	} else {
-		//TODO: Input > check for paths
 		in.isString = true
-	}
-
-	if f64, err := strconv.ParseFloat(in.String(), 64); err == nil {
-		in.isNumber = true
-		in.number = f64
-		if fmt.Sprintf("%f", f64) == fmt.Sprintf("%f", float64(int64(f64))) {
-			in.isInt = true
-		} else {
-			in.isFloat = true
+		if f64, err := strconv.ParseFloat(in.String(), 64); err == nil {
+			in.isNumber = true
+			in.number = f64
+			if fmt.Sprintf("%f", f64) == fmt.Sprintf("%f", float64(int64(f64))) {
+				in.isInt = true
+			} else {
+				in.isFloat = true
+			}
 		}
 	}
-
 	return in
 
 }
@@ -67,7 +89,7 @@ func NewInput(a *Action, s string) *Input {
 func (in *Input) Int() int         { return int(in.number) }
 func (in *Input) Float64() float64 { return in.number }
 func (in *Input) Int64() int64     { return int64(in.number) }
-func (in *Input) Raw() string      { return in.raw }
+func (in *Input) Raw() string      { return strings.Join(in.args, "\n") }
 
 func (in *Input) String() string {
 	if in.IsObject() {
@@ -154,3 +176,8 @@ func (in *Input) IsNumber() bool { return in.isNumber }
 func (in *Input) IsInt() bool    { return in.isInt }
 func (in *Input) IsFloat() bool  { return in.isFloat }
 func (in *Input) IsEmpty() bool  { return in.String() == "" }
+
+// FIXME: experimental
+func (in *Input) IsLiveFeedback() bool { return in.isLiveFeedback }
+
+func (in *Input) Paths() []string { return in.paths }
