@@ -1,30 +1,58 @@
 package launchbar
 
 import (
-	"fmt"
 	"strconv"
 	"strings"
 )
 
-// Version represents a version string
+// Version represents a version string (e.g. 1.0, 1.0, 1.0.0)
 type Version string
 
-func parseVersion(s string, width int) int64 {
-	strList := strings.Split(s, ".")
-	format := fmt.Sprintf("%%s%%0%ds", width)
-	v := ""
-	for _, value := range strList {
-		v = fmt.Sprintf(format, v, value)
+func parseVersion(s string) (major, minor, patch int) {
+	components := [3]int{0, 0, 0}
+	parts := strings.Split(s, ".")
+	for i, part := range parts {
+		parti, _ := strconv.Atoi(part)
+		components[i] = parti
 	}
-	var result int64
-	var err error
-	if result, err = strconv.ParseInt(v, 10, 64); err != nil {
-		return 0
-	}
-	return result
+	major, minor, patch = components[0], components[1], components[2]
+	return
 }
 
-// Cmp compares two versions
+// Cmp compares v and w and returns
+//  -1 if v < w
+//  0 if v == w
+//  +1 if v > w
 func (v Version) Cmp(w Version) int {
-	return int(parseVersion(string(v), 4) - parseVersion(string(w), 4))
+	v0, v1, v2 := parseVersion(string(v))
+	w0, w1, w2 := parseVersion(string(w))
+	switch {
+	case v0 > w0:
+		return 1
+	case v0 < w0:
+		return -1
+	case v1 > w1:
+		return 1
+	case v1 < w1:
+		return -1
+	case v2 > w2:
+		return 1
+	case v2 < w2:
+		return -1
+	}
+	return 0
+}
+
+// Less returns true if v < w
+// Example:
+//  Version("0.1.0").Less(Version("1.0")) == true
+func (v Version) Less(w Version) bool {
+	return v.Cmp(w) < 0
+}
+
+// Equal returns true if v == w
+// Example:
+//  Version("1.0").Equal(Version("1")) == true
+func (v Version) Equal(w Version) bool {
+	return v.Cmp(w) == 0
 }
