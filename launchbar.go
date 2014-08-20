@@ -124,6 +124,9 @@ func (a *Action) Init(m ...FuncMap) *Action {
 		if !ok {
 			a.Logger.Fatalf("update function: expected string got: %#v", vals[0].Interface())
 		}
+		if a.InDev() {
+			a.Logger.Println(out)
+		}
 		json, err := simplejson.NewJson([]byte(out))
 		if err != nil {
 			a.Logger.Fatalf("update function should return a valid json string: %q (%v)", out, err)
@@ -368,6 +371,9 @@ func (a *Action) GetItem(id int) *Item {
 	}
 	return nil
 }
+
+// InDev returns true if the config.indev is true
+func (a *Action) InDev() bool { return a.Config.GetBool("indev") }
 
 // Info.plist variables
 
