@@ -13,15 +13,13 @@ import (
 
 func update(c *Context) string {
 	updateLink := c.Action.info["LBDescription"].(map[string]interface{})["LBUpdate"].(string)
-	config := c.Config
-
-	updateStartTime := config.GetInt("updateStartTime")
-	if updateStartTime > 0 && time.Unix(updateStartTime, 0).After(time.Now().Add(-3*time.Minute)) {
-		return die("update in progress", fmt.Sprintf("update check in progress (started %v ago)", time.Now().Sub(time.Unix(updateStartTime, 0))))
+	var updateStartTime time.Time
+	if _, err := c.Cache.Get("updateStartTime", &updateStartTime); err == nil {
+		return die("update in progress", fmt.Sprintf("update check in progress (started %v ago)", time.Now().Sub(updateStartTime)))
 	}
-	c.Config.Set("updateStartTime", time.Now().Unix())
+	c.Cache.Set("updateStartTime", time.Now(), 3*time.Minute)
 	defer func() {
-		c.Config.Set("updateStartTime", int64(0))
+		c.Cache.Delete("updateStartTime")
 	}()
 
 	resp, err := http.Get(updateLink)

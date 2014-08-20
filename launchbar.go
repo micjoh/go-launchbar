@@ -20,11 +20,6 @@ import (
 	"github.com/codegangsta/inject"
 )
 
-const (
-	updatingNow   int64 = 0
-	updatingNever int64 = -1
-)
-
 type infoPlist map[string]interface{}
 
 // Action represents a LaunchBar action
@@ -56,10 +51,8 @@ func NewAction(name string, config ConfigValues) *Action {
 		panic("you should specify 'actionDefaultScript' in the config")
 	}
 	defaultConfig := ConfigValues{
-		"debug":           false,
-		"autoUpdate":      true,
-		"lastUpdate":      int64(-1),
-		"updateStartTime": int64(0),
+		"debug":      false,
+		"autoUpdate": true,
 	}
 	for k, v := range config {
 		defaultConfig[k] = v
@@ -170,10 +163,12 @@ func (a *Action) Init(m ...FuncMap) *Action {
 				a.Logger.Fatalf("update function bad output: %q (%s)", out, "'version' is not string")
 			}
 
-			a.Config.Set("lastUpdate", time.Now().Unix())
-			a.Config.Set("updateVersion", version)
-			a.Config.Set("updateDownload", download)
-			a.Config.Set("updateChangelog", changelog)
+			a.Cache.Set("lastUpdate", time.Now(), 7*24*time.Hour)
+			a.Cache.Set("updateInfo", map[string]string{
+				"version":   version,
+				"download":  download,
+				"changelog": changelog,
+			}, 7*24*time.Hour)
 
 		} else {
 			_, hasDesc := json.CheckGet("description")
@@ -206,27 +201,35 @@ func (a *Action) Run() string {
 	i.SetActionReturnsItems(true)
 	i.SetRender(func(c *Context) {
 		oldversion := c.Action.Version()
-		newversion := Version(c.Config.GetString("updateVersion"))
+		var updateInfo map[string]string
+		if _, err := c.Cache.Get("updateInfo", &updateInfo); err != nil {
+			return
+		}
+		newversion := Version(updateInfo["version"])
 		c.Self.SetTitle(fmt.Sprintf("New Version Available: v%s (I'm v%s)", newversion, oldversion))
 	})
 	i.SetMatch(func(c *Context) bool {
 		oldversion := c.Action.Version()
-		newversion := Version(c.Config.GetString("updateVersion"))
+		var updateInfo map[string]string
+		if _, err := c.Cache.Get("updateInfo", &updateInfo); err != nil {
+			return false
+		}
+		newversion := Version(updateInfo["version"])
 		return oldversion.Less(newversion)
 	})
 	i.SetRun(func(c *Context) *Items {
 		oldversion := c.Action.Version()
-		newversion := Version(c.Config.GetString("updateVersion"))
+		var updateInfo map[string]string
+		if _, err := c.Cache.Get("updateInfo", &updateInfo); err != nil {
+			return nil
+		}
+		newversion := Version(updateInfo["version"])
 		if !oldversion.Less(newversion) {
 			return nil
 		}
-		// if c.Action.IsControlKey() {
-		// 	c.Config.Delete("updateVersion", "updateChangelog", "updateDownload")
-		// 	return nil
-		// }
 		items := NewItems()
-		items.Add(NewItem(fmt.Sprintf("Download %s", path.Base(c.Config.GetString("updateDownload")))).SetURL(c.Config.GetString("updateDownload")))
-		for _, line := range strings.Split(c.Config.GetString("updateChangelog"), "\n") {
+		items.Add(NewItem(fmt.Sprintf("Download %s", path.Base(updateInfo["download"]))).SetURL(updateInfo["download"]))
+		for _, line := range strings.Split(updateInfo["changelog"], "\n") {
 			line = strings.TrimSpace(line)
 			if line == "" {
 				continue
@@ -314,19 +317,29 @@ func (a *Action) Run() string {
 		if v := a.info["LBDescription"].(map[string]interface{})["LBUpdate"]; v != nil {
 			updateLink = v.(string)
 		}
-		lastUpdate := a.Config.GetInt("lastUpdate")
-		if updateLink != "" {
-			if a.IsControlKey() {
-				checkForUpdates = true
-			} else if a.Config.GetBool("autoUpdate") {
-				if lastUpdate == updatingNever || time.Unix(lastUpdate, 0).Before(time.Now().AddDate(0, 0, -1)) {
+		// lastUpdate := a.Config.GetInt("lastUpdate")
+		var lastUpdate time.Time
+		if _, err := a.Cache.Get("lastUpdate", &lastUpdate); err == nil || err == ErrCacheDoesNotExists {
+			if updateLink != "" {
+				if a.IsControlKey() {
 					checkForUpdates = true
+				} else if a.Config.GetBool("autoUpdate") {
+					if lastUpdate.Before(time.Now().AddDate(0, 0, -1)) {
+						checkForUpdates = true
+					}
 				}
 			}
 		}
 		if checkForUpdates {
-			a.Logger.Println("checking for updates")
-			exec.Command(os.Args[0], `{"x-func":"update"}`).Start()
+			if a.InDev() {
+				a.Logger.Println("Checking for update...")
+				out, _ := exec.Command(os.Args[0], `{"x-func":"update"}`).CombinedOutput()
+				if s := strings.TrimSpace(string(out)); s != "" {
+					a.Logger.Println(s)
+				}
+			} else {
+				exec.Command(os.Args[0], `{"x-func":"update"}`).Start()
+			}
 		}
 	}
 
