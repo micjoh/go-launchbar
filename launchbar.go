@@ -12,9 +12,17 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"strings"
+	"time"
 
 	"github.com/DHowett/go-plist"
+	"github.com/bitly/go-simplejson"
 	"github.com/codegangsta/inject"
+)
+
+const (
+	updatingNow   int64 = 0
+	updatingNever int64 = -1
 )
 
 type infoPlist map[string]interface{}
@@ -42,7 +50,22 @@ func NewAction(name string, config ConfigValues) *Action {
 		views:    make(map[string]*View),
 		items:    make([]*Item, 0),
 	}
-	a.Config = NewConfigDefaults(a.SupportPath(), config)
+
+	// config
+	if _, found := config["actionDefaultScript"]; !found {
+		panic("you should specify 'actionDefaultScript' in the config")
+	}
+	defaultConfig := ConfigValues{
+		"debug":           false,
+		"autoUpdate":      true,
+		"lastUpdate":      int64(-1),
+		"updateStartTime": int64(0),
+	}
+	for k, v := range config {
+		defaultConfig[k] = v
+	}
+	a.Config = NewConfigDefaults(a.SupportPath(), defaultConfig)
+
 	a.Cache = NewCache(a.CachePath())
 	fd, err := os.OpenFile(path.Join(a.SupportPath(), "error.log"), os.O_APPEND|os.O_CREATE|os.O_WRONLY|os.O_SYNC, 0644)
 	if err != nil {
@@ -82,11 +105,145 @@ func (a *Action) Init(m ...FuncMap) *Action {
 	a.Input = in
 	a.context.Input = in
 
+	// TODO: needs good documentation
+	if in.hasFunc && in.Item.Item().FuncName == "update" {
+		updateFn := Func(update)
+		if fn, ok := (*a.funcs)[in.Item.item.FuncName]; ok {
+			updateFn = fn
+		}
+
+		vals, err := a.Invoke(updateFn)
+
+		if err != nil {
+			a.Logger.Fatalln(err)
+		}
+		if len(vals) == 0 {
+			a.Logger.Fatalln("update function should return a value")
+		}
+		out, ok := vals[0].Interface().(string)
+		if !ok {
+			a.Logger.Fatalf("update function: expected string got: %#v", vals[0].Interface())
+		}
+		json, err := simplejson.NewJson([]byte(out))
+		if err != nil {
+			a.Logger.Fatalf("update function should return a valid json string: %q (%v)", out, err)
+		}
+		if _, ok := json.CheckGet("error"); !ok {
+			a.Logger.Fatalf("update function bad output: %q (%s)", out, "missing 'error'")
+		}
+		e, err := json.Get("error").String()
+		if err != nil {
+			a.Logger.Fatalf("update function bad output: %q (%s)", out, "'error' is not string")
+		}
+
+		if e == "" {
+			_, hasDownload := json.CheckGet("download")
+			if !hasDownload {
+				a.Logger.Fatalf("update function bad output: %q (%s)", out, "missing 'download'")
+			}
+
+			_, hasVersion := json.CheckGet("version")
+			if !hasVersion {
+				a.Logger.Fatalf("update function bad output: %q (%s)", out, "missing 'version'")
+			}
+
+			var changelog string
+			_, hasChangelog := json.CheckGet("changelog")
+			if !hasChangelog {
+				changelog = ""
+			}
+			changelog, err = json.Get("changelog").String()
+			if err != nil {
+				a.Logger.Fatalf("update function bad output: %q (%s)", out, "'changelog' is not string")
+			}
+
+			download, err := json.Get("download").String()
+			if err != nil {
+				a.Logger.Fatalf("update function bad output: %q (%s)", out, "'download' is not string")
+			}
+
+			version, err := json.Get("version").String()
+			if err != nil {
+				a.Logger.Fatalf("update function bad output: %q (%s)", out, "'version' is not string")
+			}
+
+			a.Config.Set("lastUpdate", time.Now().Unix())
+			a.Config.Set("updateVersion", version)
+			a.Config.Set("updateDownload", download)
+			a.Config.Set("updateChangelog", changelog)
+
+		} else {
+			_, hasDesc := json.CheckGet("description")
+			if !hasDesc {
+				a.Logger.Fatalf("update function bad output: %q (%s)", out, "missing 'description'")
+			}
+			desc, err := json.Get("description").String()
+			if err != nil {
+				a.Logger.Fatalf("update function bad output: %q (%s)", out, "'description' is not string")
+			}
+			a.Logger.Println(e, ":", desc)
+		}
+
+		os.Exit(0)
+	}
+
 	return a
 }
 
 // Run returns the compiled output of views. You must call Init first
 func (a *Action) Run() string {
+
+	// Creating item to handle update
+	i := a.GetView("main").NewItem("")
+	i.Item().ID = -1
+	i.SetOrder(9999)
+	// i.SetSubtitle("Hold ⌃ to ignore")
+	i.SetIcon("/System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/ToolbarDownloadsFolderIcon.icns")
+	i.SetActionRunsInBackground(false)
+	i.SetActionReturnsItems(true)
+	i.SetRender(func(c *Context) {
+		oldversion := c.Action.Version()
+		newversion := Version(c.Config.GetString("updateVersion"))
+		c.Self.SetTitle(fmt.Sprintf("New Version Available: v%s (I'm v%s)", newversion, oldversion))
+	})
+	i.SetMatch(func(c *Context) bool {
+		oldversion := c.Action.Version()
+		newversion := Version(c.Config.GetString("updateVersion"))
+		return oldversion.Less(newversion)
+	})
+	i.SetRun(func(c *Context) *Items {
+		oldversion := c.Action.Version()
+		newversion := Version(c.Config.GetString("updateVersion"))
+		if !oldversion.Less(newversion) {
+			return nil
+		}
+		// if c.Action.IsControlKey() {
+		// 	c.Config.Delete("updateVersion", "updateChangelog", "updateDownload")
+		// 	return nil
+		// }
+		items := NewItems()
+		items.Add(NewItem(fmt.Sprintf("Download %s", path.Base(c.Config.GetString("updateDownload")))).SetURL(c.Config.GetString("updateDownload")))
+		for _, line := range strings.Split(c.Config.GetString("updateChangelog"), "\n") {
+			line = strings.TrimSpace(line)
+			if line == "" {
+				continue
+			}
+			items.Add(NewItem(line).SetIcon("at.obdev.LaunchBar:ContentsTemplate"))
+		}
+		homepage := ""
+		if desc := a.info["LBDescription"]; desc != nil {
+			if web := desc.(map[string]interface{})["LBWebsite"]; web != nil {
+				if s, ok := web.(string); ok {
+					homepage = s
+				}
+			}
+		}
+		if homepage != "" {
+			items.Add(NewItem("Open Homepage").SetURL(homepage))
+		}
+		return items
+	})
+
 	in := a.Input
 	if in.IsObject() {
 		if in.hasFunc {
@@ -140,12 +297,36 @@ func (a *Action) Run() string {
 			}
 		}
 	}
-
-	// TODO: if a.GetView(view) == nil inform the user
+	// TODO: if a.GetView(view) == nil inform the developer
 	view := a.Config.GetString("view")
+
 	if view == "" {
 		view = "main"
 	}
+
+	if view == "main" {
+		// check for updates
+		checkForUpdates := false
+		updateLink := ""
+		if v := a.info["LBDescription"].(map[string]interface{})["LBUpdate"]; v != nil {
+			updateLink = v.(string)
+		}
+		lastUpdate := a.Config.GetInt("lastUpdate")
+		if updateLink != "" {
+			if a.IsControlKey() {
+				checkForUpdates = true
+			} else if a.Config.GetBool("autoUpdate") {
+				if lastUpdate == updatingNever || time.Unix(lastUpdate, 0).Before(time.Now().AddDate(0, 0, -1)) {
+					checkForUpdates = true
+				}
+			}
+		}
+		if checkForUpdates {
+			a.Logger.Println("checking for updates")
+			exec.Command(os.Args[0], `{"x-func":"update"}`).Start()
+		}
+	}
+
 	w := a.GetView("*")
 	out := a.GetView(view).Join(w).Compile()
 	return out
