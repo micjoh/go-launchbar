@@ -22,7 +22,7 @@ type infoPlist map[string]interface{}
 // Action represents a LaunchBar action
 type Action struct {
 	inject.Injector // Used for dependency injection
-	Config          Config
+	Config          *Config
 	Cache           Cache
 	Input           *Input
 	Logger          *log.Logger
