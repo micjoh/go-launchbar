@@ -36,6 +36,11 @@ func NewInput(a *Action, args []string) *Input {
 	var in = &Input{
 		args: args,
 	}
+
+	if len(args) == 0 {
+		return in
+	}
+
 	in.isLiveFeedback = a.IsBackground()
 	if len(args) > 1 {
 		in.isPaths = true
@@ -99,28 +104,35 @@ func (in *Input) String() string {
 }
 
 func (in *Input) FuncArg() string {
-	if in.IsObject() {
-		return in.Item.item.FuncArg
+	if out := in.FuncArgs(); len(out) > 0 {
+		return out[0]
 	}
 	return ""
 }
 
+// TODO:
+// Deprecated use FuncArgs
 func (in *Input) FuncArgsString() []string {
-	if !in.isObject {
+	out := in.FuncArgs()
+	l := len(out)
+	if l == 0 {
 		return nil
 	}
-	var out []string
-	err := json.Unmarshal([]byte(in.Item.item.FuncArg), &out)
-	if err != nil {
-		return []string{in.Item.item.FuncArg}
+	args := make([]string, l)
+	for i := 0; i < l; i++ {
+		args[i] = out[i]
 	}
-	return out
+	return args
 }
 
-func (in *Input) FuncArgsMapString() map[int]string {
+// TODO:
+// Deprecated use FuncArgs
+func (in *Input) FuncArgsMapString() map[int]string { return in.FuncArgs() }
+
+func (in *Input) FuncArgs() map[int]string {
 	out := make(map[int]string)
 	if !in.isObject {
-		return out
+		return nil
 	}
 	var args []interface{}
 	err := json.Unmarshal([]byte(in.Item.item.FuncArg), &args)
