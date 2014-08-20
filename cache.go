@@ -2,6 +2,7 @@ package launchbar
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
@@ -28,8 +29,8 @@ type Cache struct {
 }
 
 // NewCache initialize and returns a new Cache
-func NewCache(p string) Cache {
-	return Cache{path: p}
+func NewCache(p string) *Cache {
+	return &Cache{path: p}
 }
 
 type cacheItem struct {
@@ -43,6 +44,9 @@ type genericCache struct {
 
 // Delete removes a cachefile for the specified key
 func (c *Cache) Delete(key string) {
+	if !path.IsAbs(c.path) || path.Dir(c.path) != os.ExpandEnv("$HOME/Library/Caches/at.obdev.LaunchBar/Actions") {
+		panic(fmt.Sprintf("bad cache path: %q", c.path))
+	}
 	p := path.Join(c.path, key)
 	if stat, err := os.Stat(p); err == nil {
 		if !stat.IsDir() {
@@ -74,7 +78,7 @@ func (c *Cache) Set(key string, data interface{}, d time.Duration) {
 //
 // if the cache is expired it returns the expire time and ErrCacheIsExpired
 //
-// if the cache there's an error reading the cachefile it return nil, ErrCacheIsCorrupted
+// if there's an error reading the cachefile it returns nil, ErrCacheIsCorrupted
 //
 // Otherwise it returns the expiry time, nil
 func (c *Cache) Get(key string, v interface{}) (*time.Time, error) {
@@ -105,7 +109,7 @@ func (c *Cache) Get(key string, v interface{}) (*time.Time, error) {
 }
 
 // SetItems is a helper function to store some Items
-func (c Cache) SetItems(key string, items *Items, d time.Duration) {
+func (c *Cache) SetItems(key string, items *Items, d time.Duration) {
 	wd, err := os.Create(path.Join(c.path, key))
 	if err != nil {
 		log.Fatalln(err)
@@ -153,7 +157,7 @@ func (c *Cache) GetItemsWithInfo(key string) (*Items, *time.Time, error) {
 }
 
 // GetItems is a helper function to get the stored items from the cache
-func (c Cache) GetItems(key string) *Items {
+func (c *Cache) GetItems(key string) *Items {
 	items, _, _ := c.GetItemsWithInfo(key)
 	return items
 }

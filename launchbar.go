@@ -31,7 +31,7 @@ type infoPlist map[string]interface{}
 type Action struct {
 	inject.Injector // Used for dependency injection
 	Config          *Config
-	Cache           Cache
+	Cache           *Cache
 	Input           *Input
 	Logger          *log.Logger
 	name            string
