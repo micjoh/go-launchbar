@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"path"
 
 	"time"
@@ -46,6 +47,10 @@ func (c *Config) Delete(keys ...string) {
 
 // Set sets the key, val and saves the config to the disk.
 func (c *Config) Set(key string, val interface{}) {
+	if !path.IsAbs(c.path) || path.Dir(path.Dir(c.path)) != os.ExpandEnv("$HOME/Library/Application Support/LaunchBar/Action Support") {
+		panic(fmt.Sprintf("bad config path: %q", c.path))
+	}
+
 	c.data[key] = val
 	c.save()
 }
