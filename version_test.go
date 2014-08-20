@@ -37,6 +37,9 @@ func TestVersionCmp(t *testing.T) {
 		{"1.2.1", "1.2", 1},
 		{"11.0.1", "10.9.1", 1},
 		{"11.1.2", "11.1.3", -1},
+		{"1.12", "1.11", 1},
+		{"1.12", "1.12", 0},
+		{"1.12", "1.13", -1},
 	}
 
 	for _, test := range tests {
@@ -63,6 +66,9 @@ func TestVersionEqual(t *testing.T) {
 		{"1.0.0", "0", false},
 		{"1.0", "0", false},
 		{"1", "0", false},
+		{"1.12", "1.12", true},
+		{"1.12", "1.012", true},
+		{"1.12", "1.13", false},
 	}
 
 	for _, test := range tests {
@@ -97,6 +103,9 @@ func TestVersionLess(t *testing.T) {
 		{"0.1", "0", false},
 		{"0", "0.1", true},
 		{"0.1.0", "1.0", true},
+		{"0.12", "0.13", true},
+		{"0.12", "1.12", true},
+		{"0.12", "0.12", false},
 	}
 
 	for _, test := range tests {
