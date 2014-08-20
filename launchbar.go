@@ -1,4 +1,4 @@
-// package launchbar is a package to quickly write LaunchBar v6 actions like a pro
+// Package launchbar is a package to quickly write LaunchBar v6 actions like a pro
 //
 // For example check :
 //   https://github.com/nbjahan/launchbar-pinboard
