@@ -43,6 +43,9 @@ func (o itemsByOrder) Less(i, j int) bool { return o[i].item.Order < o[j].item.O
 
 // Compile returns items collection as a json string.
 func (items *Items) Compile() string {
+	if items == nil {
+		return ""
+	}
 	if len(*items) == 0 {
 		return ""
 	}

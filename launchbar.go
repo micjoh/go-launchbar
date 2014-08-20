@@ -126,8 +126,12 @@ func (a *Action) Run() string {
 					}
 					if len(vals) > 0 {
 						if vals[0].Interface() != nil {
-							out := vals[0].Interface().(Items)
-							s := out.Compile()
+							var s string
+							if out, ok := vals[0].Interface().(Items); ok {
+								s = out.Compile()
+							} else {
+								s = vals[0].Interface().(*Items).Compile()
+							}
 							return s
 						}
 					}
