@@ -180,13 +180,12 @@ func (a *Action) GetView(v string) *View {
 
 // GetItem return an Item with its ID. Returns nil if not found.
 func (a *Action) GetItem(id int) *Item {
-	if id < 1 {
-		return nil
+	for _, item := range a.items {
+		if item.Item().ID == id {
+			return item
+		}
 	}
-	if id > len(a.items) {
-		return nil
-	}
-	return a.items[id-1]
+	return nil
 }
 
 // Info.plist variables
