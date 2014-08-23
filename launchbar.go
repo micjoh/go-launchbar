@@ -319,11 +319,12 @@ func (a *Action) Run() string {
 		}
 		// lastUpdate := a.Config.GetInt("lastUpdate")
 		var lastUpdate time.Time
-		if _, err := a.Cache.Get("lastUpdate", &lastUpdate); err == nil || err == ErrCacheDoesNotExists {
-			if updateLink != "" {
-				if a.IsControlKey() {
-					checkForUpdates = true
-				} else if a.Config.GetBool("autoUpdate") {
+		if updateLink != "" {
+			// TODO: Watch this, IsControlKey, IsOptionKey does not work in LB6102
+			if a.IsShiftKey() && a.IsOptionKey() {
+				checkForUpdates = true
+			} else if a.Config.GetBool("autoUpdate") {
+				if _, err := a.Cache.Get("lastUpdate", &lastUpdate); err == nil || err == ErrCacheDoesNotExists {
 					if lastUpdate.Before(time.Now().AddDate(0, 0, -1)) {
 						checkForUpdates = true
 					}
