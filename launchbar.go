@@ -322,6 +322,8 @@ func (a *Action) Run() string {
 		if updateLink != "" {
 			// TODO: Watch this, IsControlKey, IsOptionKey does not work in LB6102
 			if a.IsShiftKey() && a.IsOptionKey() {
+				// TODO: notify the user
+				a.Logger.Println("Force update.")
 				checkForUpdates = true
 			} else if a.Config.GetBool("autoUpdate") {
 				if _, err := a.Cache.Get("lastUpdate", &lastUpdate); err == nil || err == ErrCacheDoesNotExists {

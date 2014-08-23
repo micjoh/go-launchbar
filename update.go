@@ -22,27 +22,47 @@ func update(c *Context) string {
 		c.Cache.Delete("updateStartTime")
 	}()
 
-	resp, err := http.Get(updateLink)
-	if err != nil {
-		return die("cannot get updateLink", fmt.Sprintf("%v", err))
+	var data, updatePlist []byte
+	var etag, updateETag string
+	c.Cache.Get("updateETag", &etag)
+	if etag != "" {
+		resp, err := http.Head(updateLink)
+		if err != nil {
+			return die("cannot get updateLink", fmt.Sprintf("%v", err))
+		}
+		updateETag = resp.Header.Get("etag")
+		if etag == updateETag {
+			c.Cache.Get("updatePlist", &updatePlist)
+			if len(updatePlist) != 0 {
+				data = updatePlist
+			}
+		}
 	}
-	if resp.StatusCode >= 300 {
-		return die("cannot get updateLink", fmt.Sprintf("%v", resp.Status))
+
+	if len(data) == 0 {
+		resp, err := http.Get(updateLink)
+		if err != nil {
+			return die("cannot get updateLink", fmt.Sprintf("%v", err))
+		}
+		if resp.StatusCode >= 400 {
+			return die("cannot get updateLink", fmt.Sprintf("%v", resp.Status))
+		}
+		defer resp.Body.Close()
+		data, err = ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return die("cannot get updateLink", fmt.Sprintf("%v", err))
+		}
+		c.Cache.Set("updateETag", resp.Header.Get("etag"), 0)
+		c.Cache.Set("updatePlist", data, 0)
 	}
-	defer resp.Body.Close()
-	data, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return die("cannot get updateLink", fmt.Sprintf("%v", err))
-	}
+
 	var v map[string]interface{}
-	_, err = plist.Unmarshal(data, &v)
+	_, err := plist.Unmarshal(data, &v)
 	if err != nil {
 		return die("cannot parse updateLink", fmt.Sprintf("Error: %v\nData: %s", err, string(data)))
 	}
 
-	updateVersion := ""
-	updateDownload := ""
-	updateChangelog := ""
+	var updateVersion, updateDownload, updateChangelog string
 
 	if v["CFBundleVersion"] != nil {
 		if s, ok := v["CFBundleVersion"].(string); ok {
