@@ -67,6 +67,7 @@ func NewInput(a *Action, args []string) *Input {
 
 		in.Item.item.Order = item.Order
 		in.Item.item.FuncName = item.FuncName
+		in.Item.item.FuncArg = item.FuncArg
 		in.Item.item.Data = item.Data
 		if item.FuncName != "" {
 			in.hasFunc = true
